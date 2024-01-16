@@ -1,5 +1,7 @@
 import pygame
 from sys import exit
+from random import seed
+from random import randint
 
 
 pygame.font.init() 
@@ -13,8 +15,11 @@ state = "start"
 logo_text = font.render("Tic Tac Toe", False, "Black")
 logo_rect = logo_text.get_rect(center = (300, 50))
 
-button_text = font.render("START", False, "Black")
+button_text = font.render("PvP", False, "Black")
 button_rect = button_text.get_rect(center = (300, 300))
+
+button2_text = font.render("PvAI", False, "Black")
+button2_rect = button2_text.get_rect(center = (300, 450))
 
 '''GAME SCREEN'''
 board = [
@@ -40,9 +45,62 @@ def draw(board):
     return True
   else:
     return False
+  
 
+'''GAME SCREEN AI'''
 
+choose_O = font.render("Graj jako O", False, "Black")
+O_rect = choose_O.get_rect(center = (300, 200))
 
+choose_X = font.render("Graj jako X", False, "Black")
+X_rect = choose_X.get_rect(center = (300, 400))
+
+you = ""
+ai = ""
+ai_turn = None
+
+def getPossibleMoves(board):
+  moves = []
+  for i in range(3):
+    for j in range(3):
+      if board[i][j] == "-":
+        moves.append((i, j))
+  return moves 
+
+def getComputerMove():
+  corners = [(0, 0), (0, 2), (2, 0), (2, 2)]
+  possible_moves = getPossibleMoves(board)
+  c_free = 0
+  for m in possible_moves:
+    board[m[0]][m[1]] = ai
+    if win(board):
+      return m
+    elif draw(board):
+      return m
+    board[m[0]][m[1]] = you
+    if win(board):
+      return m
+    board[m[0]][m[1]] =  "-"
+
+  for c in corners:
+    if board[c[0]][c[1]] == you:
+      if (1, 1) in possible_moves:
+        return (1, 1)
+    elif board[c[0]][c[1]] == "-":
+      c_free += 1
+    elif board[c[0]][c[1]] == ai:
+      if c == (0, 0) and board[0][2] == "-":
+        return (0, 2)
+      elif c == (0, 2)  and board[0][0] == "-":
+        return (0, 0)
+      elif c == (2, 0) and board[2][2] == "-":
+        return (2, 2)
+      elif c == (2, 2)  and board[2][0] == "-":
+        return (2, 0)
+    elif c_free == 4:
+      return (0, 0)
+  seed(1)
+  return possible_moves[randint(0, len(possible_moves))]
 '''END SCREEN'''
 
 playAgain_text = font.render("OD NOWA", False, "Black")
@@ -59,6 +117,8 @@ def start(screen):
   screen.blit(logo_text, logo_rect)
   pygame.draw.rect(screen, "#46e37d", button_rect)
   screen.blit(button_text, button_rect)
+  pygame.draw.rect(screen, "#46e37d", button2_rect)
+  screen.blit(button2_text, button2_rect)
 
 def game(screen):
   screen.fill("#5374e0")
@@ -75,15 +135,32 @@ def game(screen):
   pygame.draw.line(screen, "Black", (0, 200), (600, 200))
   pygame.draw.line(screen, "Black", (0, 400), (600, 400))
 
-def end(screen):
+def game_ai_choose(screen):
   screen.fill("#5374e0")
 
-  if win(board):
-    result = "Wygrywa O" if turn else "Wygrywa X"
-  elif draw(board):
-    result = "Remis"
+  pygame.draw.rect(screen, "#46e37d", O_rect)
+  screen.blit(choose_O, O_rect)
 
-  score_text = font.render(result, False, "Black")
+  pygame.draw.rect(screen, "#46e37d", X_rect)
+  screen.blit(choose_X, X_rect)
+
+
+def end(screen):
+  screen.fill("#5374e0")
+  game(screen)
+
+  if ai_turn != None:
+    if win(board):
+      result = "Przegrałeś" if ai_turn else "Wygrałeś"
+    elif draw(board):
+      result = "Remis"
+  else:   
+    if win(board):
+      result = "Wygrywa O" if turn else "Wygrywa X"
+    elif draw(board):
+      result = "Remis"
+
+  score_text = font.render(result, False, "White")
   score_rect = score_text.get_rect(center = (300, 50))
   screen.blit(score_text, score_rect)
   pygame.draw.rect(screen, "#46e37d", playAgain_rect)
@@ -97,9 +174,12 @@ while True:
       pygame.quit()
       exit()
     if state == "start":
-      if e.type == pygame.MOUSEBUTTONUP and button_rect.collidepoint(e.pos):
-        state = "game"
-    if state == "game":
+      if e.type == pygame.MOUSEBUTTONUP:
+        if button_rect.collidepoint(e.pos):
+          state = "game_pvp"
+        elif button2_rect.collidepoint(e.pos):
+          state = "game_ai_choose"
+    if state == "game_pvp":
       if e.type == pygame.MOUSEBUTTONDOWN:
         pos = e.pos
         r = pos[0] // 200
@@ -111,6 +191,42 @@ while True:
             state = "end"
           else:
             turn = not turn
+    if state == "game_ai_choose":
+      if e.type == pygame.MOUSEBUTTONUP:
+        if X_rect.collidepoint(e.pos):
+          you = "X"
+          ai = "O"
+          ai_turn = True
+          state = "game_ai"
+        elif O_rect.collidepoint(e.pos):
+          you = "O"
+          ai = "X"
+          ai_turn = False
+          state = "game_ai"
+    if state == "game_ai":
+      if not ai_turn:
+        if e.type == pygame.MOUSEBUTTONDOWN:
+          pos = e.pos
+          r = pos[0] // 200
+          c = pos[1] // 200
+          if board[r][c] == "-":
+            board[r][c] = you
+          if win(board) or draw(board):
+            game(screen)
+            state = "end"
+          else:
+            ai_turn = not ai_turn
+      else:
+        move = getComputerMove()
+        board[move[0]][move[1]] = ai
+        print(board)
+        if win(board) or draw(board):
+            game(screen)
+            state = "end"
+        else:
+          ai_turn = not ai_turn
+      
+      
     if state == "end":
       if e.type == pygame.MOUSEBUTTONUP:
         if quit_rect.collidepoint(e.pos):
@@ -121,7 +237,11 @@ while True:
 
   if state == "start":
     start(screen)
-  elif state == "game":
+  elif state == "game_pvp":
+    game(screen)
+  elif state == "game_ai_choose":
+    game_ai_choose(screen)
+  elif state == "game_ai":
     game(screen)
   elif state == "end":
     end(screen)
@@ -131,7 +251,8 @@ while True:
     ["-", "-", "-"],
     ["-", "-", "-"]]
     turn = True
-    state = "game"
+    ai_turn = None
+    state = "start"
     
 
   pygame.display.update()
