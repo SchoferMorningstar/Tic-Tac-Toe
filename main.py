@@ -219,7 +219,6 @@ while True:
       else:
         move = getComputerMove()
         board[move[0]][move[1]] = ai
-        print(board)
         if win(board) or draw(board):
             game(screen)
             state = "end"
